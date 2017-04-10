@@ -1,0 +1,633 @@
+#!/usr/bin/python 
+
+2
+import cwiid 
+
+3
+import sys 
+
+4
+ 
+
+5
+menu = '''1: toggle LED 1 
+
+6
+2: toggle LED 2 
+
+7
+3: toggle LED 3 
+
+8
+4: toggle LED 4 
+
+9
+5: toggle rumble 
+
+10
+a: toggle accelerometer reporting 
+
+11
+b: toggle button reporting 
+
+12
+c: enable motionplus, if connected 
+
+13
+e: toggle extension reporting 
+
+14
+i: toggle ir reporting 
+
+15
+m: toggle messages 
+
+16
+p: print this menu 
+
+17
+r: request status message ((t) enables callback output) 
+
+18
+s: print current state 
+
+19
+t: toggle status reporting 
+
+20
+x: exit''' 
+
+21
+ 
+
+22
+def main(): 
+
+23
+        led = 0 
+
+24
+        rpt_mode = 0 
+
+25
+        rumble = 0 
+
+26
+        mesg = False 
+
+27
+ 
+
+28
+        #Connect to address given on command-line, if present 
+
+29
+        print 'Put Wiimote in discoverable mode now (press 1+2)...' 
+
+30
+        global wiimote 
+
+31
+        if len(sys.argv) > 1: 
+
+32
+                wiimote = cwiid.Wiimote(sys.argv[1]) 
+
+33
+        else: 
+
+34
+                wiimote = cwiid.Wiimote() 
+
+35
+ 
+
+36
+        wiimote.mesg_callback = callback 
+
+37
+ 
+
+38
+        print menu 
+
+39
+ 
+
+40
+        exit = 0 
+
+41
+        while not exit: 
+
+42
+                c = sys.stdin.read(1) 
+
+43
+                if c == '1': 
+
+44
+                        led ^= cwiid.LED1_ON 
+
+45
+                        wiimote.led = led 
+
+46
+                elif c == '2': 
+
+47
+                        led ^= cwiid.LED2_ON 
+
+48
+                        wiimote.led = led 
+
+49
+                elif c == '3': 
+
+50
+                        led ^= cwiid.LED3_ON 
+
+51
+                        wiimote.led = led 
+
+52
+                elif c == '4': 
+
+53
+                        led ^= cwiid.LED4_ON 
+
+54
+                        wiimote.led = led 
+
+55
+                elif c == '5': 
+
+56
+                        rumble ^= 1 
+
+57
+                        wiimote.rumble = rumble 
+
+58
+                elif c == 'a': 
+
+59
+                        rpt_mode ^= cwiid.RPT_ACC 
+
+60
+                        wiimote.rpt_mode = rpt_mode 
+
+61
+                elif c == 'b': 
+
+62
+                        rpt_mode ^= cwiid.RPT_BTN 
+
+63
+                        wiimote.rpt_mode = rpt_mode 
+
+64
+                elif c == 'c': 
+
+65
+                        wiimote.enable(cwiid.FLAG_MOTIONPLUS) 
+
+66
+                elif c == 'e': 
+
+67
+                        rpt_mode ^= cwiid.RPT_EXT 
+
+68
+                        wiimote.rpt_mode = rpt_mode 
+
+69
+                elif c == 'i': 
+
+70
+                        rpt_mode ^= cwiid.RPT_IR 
+
+71
+                        wiimote.rpt_mode = rpt_mode 
+
+72
+                elif c == 'm': 
+
+73
+                        mesg = not mesg 
+
+74
+                        if mesg: 
+
+75
+                                wiimote.enable(cwiid.FLAG_MESG_IFC); 
+
+76
+                        else: 
+
+77
+                                wiimote.disable(cwiid.FLAG_MESG_IFC); 
+
+78
+                elif c == 'p': 
+
+79
+                        print menu 
+
+80
+                elif c == 'r': 
+
+81
+                        wiimote.request_status() 
+
+82
+                elif c == 's': 
+
+83
+                        print_state(wiimote.state) 
+
+84
+                elif c == 't': 
+
+85
+                        rpt_mode ^= cwiid.RPT_STATUS 
+
+86
+                        wiimote.rpt_mode = rpt_mode 
+
+87
+                elif c == 'x': 
+
+88
+                        exit = -1; 
+
+89
+                elif c == '\n': 
+
+90
+                        pass 
+
+91
+                else: 
+
+92
+                        print 'invalid option' 
+
+93
+ 
+
+94
+        wiimote.close() 
+
+95
+ 
+
+96
+def print_state(state): 
+
+97
+        print 'Report Mode:', 
+
+98
+        for r in ['STATUS', 'BTN', 'ACC', 'IR', 'NUNCHUK', 'CLASSIC', 'BALANCE', 'MOTIONPLUS']: 
+
+99
+                if state['rpt_mode'] & eval('cwiid.RPT_' + r): 
+
+100
+                        print r, 
+
+101
+        print 
+
+102
+ 
+
+103
+        print 'Active LEDs:', 
+
+104
+        for led in ['1','2','3','4']: 
+
+105
+                if state['led'] & eval('cwiid.LED' + led + '_ON'): 
+
+106
+                        print led, 
+
+107
+        print 
+
+108
+ 
+
+109
+        print 'Rumble:', state['rumble'] and 'On' or 'Off' 
+
+110
+ 
+
+111
+        print 'Battery:', int(100.0 * state['battery'] / cwiid.BATTERY_MAX) 
+
+112
+ 
+
+113
+        if 'buttons' in state: 
+
+114
+                print 'Buttons:', state['buttons'] 
+
+115
+ 
+
+116
+        if 'acc' in state: 
+
+117
+                print 'Acc: x=%d y=%d z=%d' % (state['acc'][cwiid.X], 
+
+118
+                                               state['acc'][cwiid.Y], 
+
+119
+                                               state['acc'][cwiid.Z]) 
+
+120
+ 
+
+121
+        if 'ir_src' in state: 
+
+122
+                valid_src = False 
+
+123
+                print 'IR:', 
+
+124
+                for src in state['ir_src']: 
+
+125
+                        if src: 
+
+126
+                                valid_src = True 
+
+127
+                                print src['pos'], 
+
+128
+ 
+
+129
+                if not valid_src: 
+
+130
+                        print 'no sources detected' 
+
+131
+                else: 
+
+132
+                        print 
+
+133
+ 
+
+134
+        if state['ext_type'] == cwiid.EXT_NONE: 
+
+135
+                print 'No extension' 
+
+136
+        elif state['ext_type'] == cwiid.EXT_UNKNOWN: 
+
+137
+                print 'Unknown extension attached' 
+
+138
+        elif state['ext_type'] == cwiid.EXT_NUNCHUK: 
+
+139
+                if state.has_key('nunchuk'): 
+
+140
+                        print 'Nunchuk: btns=%.2X stick=%r acc.x=%d acc.y=%d acc.z=%d' % \ 
+
+141
+                          (state['nunchuk']['buttons'], state['nunchuk']['stick'], 
+
+142
+                           state['nunchuk']['acc'][cwiid.X], 
+
+143
+                           state['nunchuk']['acc'][cwiid.Y], 
+
+144
+                           state['nunchuk']['acc'][cwiid.Z]) 
+
+145
+        elif state['ext_type'] == cwiid.EXT_CLASSIC: 
+
+146
+                if state.has_key('classic'): 
+
+147
+                        print 'Classic: btns=%.4X l_stick=%r r_stick=%r l=%d r=%d' % \ 
+
+148
+                          (state['classic']['buttons'], 
+
+149
+                           state['classic']['l_stick'], state['classic']['r_stick'], 
+
+150
+                           state['classic']['l'], state['classic']['r']) 
+
+151
+        elif state['ext_type'] == cwiid.EXT_BALANCE: 
+
+152
+                if state.has_key('balance'): 
+
+153
+                        print 'Balance: right_top=%d right_bottom=%d left_top=%d left_bottom=%d' % \ 
+
+154
+                          (state['balance']['right_top'], state['balance']['right_bottom'], 
+
+155
+                           state['balance']['left_top'], state['balance']['left_bottom']) 
+
+156
+        elif state['ext_type'] == cwiid.EXT_MOTIONPLUS: 
+
+157
+                if state.has_key('motionplus'): 
+
+158
+                        print 'MotionPlus: angle_rate=(%d,%d,%d)' % state['motionplus']['angle_rate'] 
+
+159
+ 
+
+160
+def callback(mesg_list, time): 
+
+161
+        print 'time: %f' % time 
+
+162
+        for mesg in mesg_list: 
+
+163
+                if mesg[0] == cwiid.MESG_STATUS: 
+
+164
+                        print 'Status Report: battery=%d extension=' % \ 
+
+165
+                               mesg[1]['battery'], 
+
+166
+                        if mesg[1]['ext_type'] == cwiid.EXT_NONE: 
+
+167
+                                print 'none' 
+
+168
+                        elif mesg[1]['ext_type'] == cwiid.EXT_NUNCHUK: 
+
+169
+                                print 'Nunchuk' 
+
+170
+                        elif mesg[1]['ext_type'] == cwiid.EXT_CLASSIC: 
+
+171
+                                print 'Classic Controller' 
+
+172
+                        elif mesg[1]['ext_type'] == cwiid.EXT_BALANCE: 
+
+173
+                                print 'Balance Board' 
+
+174
+                        elif mesg[1]['ext_type'] == cwiid.EXT_MOTIONPLUS: 
+
+175
+                                print 'MotionPlus' 
+
+176
+                        else: 
+
+177
+                                print 'Unknown Extension' 
+
+178
+ 
+
+179
+                elif mesg[0] == cwiid.MESG_BTN: 
+
+180
+                        print 'Button Report: %.4X' % mesg[1] 
+
+181
+ 
+
+182
+                elif mesg[0] == cwiid.MESG_ACC: 
+
+183
+                        print 'Acc Report: x=%d, y=%d, z=%d' % \ 
+
+184
+                              (mesg[1][cwiid.X], mesg[1][cwiid.Y], mesg[1][cwiid.Z]) 
+
+185
+ 
+
+186
+                elif mesg[0] == cwiid.MESG_IR: 
+
+187
+                        valid_src = False 
+
+188
+                        print 'IR Report: ', 
+
+189
+                        for src in mesg[1]: 
+
+190
+                                if src: 
+
+191
+                                        valid_src = True 
+
+192
+                                        print src['pos'], 
+
+193
+ 
+
+194
+                        if not valid_src: 
+
+195
+                                print 'no sources detected' 
+
+196
+                        else: 
+
+197
+                                print 
+
+198
+ 
+
+199
+                elif mesg[0] == cwiid.MESG_NUNCHUK: 
+
+200
+                        print ('Nunchuk Report: btns=%.2X stick=%r ' + \ 
+
+201
+                               'acc.x=%d acc.y=%d acc.z=%d') % \ 
+
+202
+                              (mesg[1]['buttons'], mesg[1]['stick'], 
+
+203
+                               mesg[1]['acc'][cwiid.X], mesg[1]['acc'][cwiid.Y], 
+
+204
+                               mesg[1]['acc'][cwiid.Z]) 
+
+205
+                elif mesg[0] == cwiid.MESG_CLASSIC: 
+
+206
+                        print ('Classic Report: btns=%.4X l_stick=%r ' + \ 
+
+207
+                               'r_stick=%r l=%d r=%d') % \ 
+
+208
+                              (mesg[1]['buttons'], mesg[1]['l_stick'], 
+
+209
+                               mesg[1]['r_stick'], mesg[1]['l'], mesg[1]['r']) 
+
+210
+                elif mesg[0] ==  cwiid.MESG_BALANCE: 
+
+211
+                        print ('Balance Report: right_top=%d right_bottom=%d ' + \ 
+
+
